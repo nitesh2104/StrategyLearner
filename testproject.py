@@ -1,41 +1,54 @@
-import ManualStrategy as ms
-import marketsimcode
+import datetime as dt
+
+from ManualStrategy import run_manual_strategy
+from ManualStrategy import testPolicy as testPolicy_ms
+from StrategyLearner import StrategyLearner
+from experiment1 import experiment1
+from experiment2 import experiment2
 
 save_fig = True
 
-# Compute TOS / Benchmark
-start_date = '2008-1-1'
-end_date = '2009-12-31'
-symbols = 'JPM'
 
-portval_tos = ms.testPolicy(symbols, start_date, end_date, 100000)
-port_val_tos = marketsimcode.compute_portvals(orders=portval_tos, start_val=100000, commission=0.00, impact=0.00)
+def author():
+    return 'narora62'
 
-portval_bench = ms.bench_mark(symbols, start_date, end_date, 100000)
-port_val_bench = marketsimcode.compute_portvals(orders=portval_bench, start_val=100000, commission=0.00, impact=0.00)
 
-cum_ret, avg_daily_ret, std_daily_ret, sharpe_ratio = marketsimcode.compute_optimized_portfolio_stats(port_val_tos['portval'])
-cum_ret_bchm, avg_daily_ret_bchm, std_daily_ret_bchm, sharpe_ratio_bchm = marketsimcode.compute_optimized_portfolio_stats(port_val_bench['portval'])
+def main():
+    symbol = "JPM"
+    test_out_sample = True
+    hr = "-" * 80
+    print(hr)
+    print("Running Manual Strategy...\n")
+    df_trades_ms = testPolicy_ms(symbol=symbol, sd=dt.datetime(2008, 1, 1), ed=dt.datetime(2009, 12, 31), sv=100000)
+    print("\tRunning In-Sample Strategy...\n")
+    run_manual_strategy(df_trades_ms, symbols='JPM', start_date=dt.datetime(2008, 1, 1), end_date=dt.datetime(2009, 12, 31), save_fig=save_fig, fig_name='MS-IN.png')
 
-print("Date Range: {} to {}".format(start_date, end_date))
-print("Cumulative Return of Portfolio: {}".format(cum_ret))
-print("Cumulative Return of Benchmark: {}".format(cum_ret_bchm))
-print("Standard Deviation of Portfolio: {}".format(std_daily_ret))
-print("Standard Deviation of Benchmark: {}".format(std_daily_ret_bchm))
-print("Average Daily Return of Portfolio: {}".format(avg_daily_ret))
-print("Average Daily Return of Benchmark: {}".format(avg_daily_ret_bchm))
-print("Sharpe Ratio of Portfolio: {}".format(sharpe_ratio))
-print("Sharpe Ratio of Benchmark: {}".format(sharpe_ratio_bchm))
-print("Final Portfolio Value: {}".format(port_val_tos['portval'][-1]))
-print("Final Benchmark Value: {}".format(port_val_bench['portval'][-1]))
+    print("\tRunning Out-Sample Strategy...\n")
+    df_trades_ms = testPolicy_ms(symbol=symbol, sd=dt.datetime(2010, 1, 1), ed=dt.datetime(2011, 12, 31), sv=100000)
+    run_manual_strategy(df_trades_ms, symbols='JPM', start_date=dt.datetime(2010, 1, 1), end_date=dt.datetime(2011, 12, 31), save_fig=save_fig, fig_name='MS-OUT.png')
 
-port_vals_bchm_norm = port_val_bench / port_val_bench.iloc[0]
-port_vals_norm = port_val_tos / port_val_tos.iloc[0]
+    print(hr)
+    print("Running Strategy Learner...\n")
+    learner = StrategyLearner(verbose=False, impact=0.005, commission=9.95)  # constructor
+    learner.add_evidence(symbol=symbol, sd=dt.datetime(2008, 1, 1), ed=dt.datetime(2009, 12, 31), sv=100000)  # training phase
+    print("\tRunning In-Sample Strategy Learner...\n")
+    df_trades_sl = learner.testPolicy(symbol=symbol, sd=dt.datetime(2008, 1, 1), ed=dt.datetime(2009, 12, 31), sv=100000)  # testing phase
+    learner.run_strategy_learner(df_trades=df_trades_sl, symbols=symbol, start_date=dt.datetime(2008, 1, 1), end_date=dt.datetime(2009, 12, 31), save_fig=save_fig, fig_name='SL-IN.png')
 
-port_vals_bchm_norm.rename(columns={'portval': 'Portval Benchmark'}, inplace=True)
-port_vals_norm.rename(columns={'portval': 'Portval TOS'}, inplace=True)
+    if test_out_sample:
+        print("\tRunning Out-Sample Strategy Learner...\n")
+        df_trades_sl = learner.testPolicy(symbol=symbol, sd=dt.datetime(2010, 1, 1), ed=dt.datetime(2011, 12, 31), sv=100000)  # testing phase
+        learner.run_strategy_learner(df_trades=df_trades_sl, symbols=symbol, start_date=dt.datetime(2010, 1, 1), end_date=dt.datetime(2011, 12, 31), save_fig=save_fig, fig_name='SL-OUT.png')
 
-ms.plt_data(port_vals_bchm_norm, port_vals_norm, plot=save_fig)
+    print(hr)
+    print("Running experiment 1...\n")
+    experiment1(save_fig=save_fig, fig_name='Experiment1.png')
+
+    print(hr)
+    print("Running experiment 2...\n")
+    experiment2(save_fig=save_fig, fig_name='Experiment2.png')
+    print(hr)
+
 
 if __name__ == '__main__':
-    pass
+    main()
